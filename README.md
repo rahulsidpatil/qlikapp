@@ -4,4 +4,4 @@
 
 # Licensing
 
-qlikapp is under the Apache 2.0 license.
+qlikapp is under the MIT License.
