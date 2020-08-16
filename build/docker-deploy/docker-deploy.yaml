@@ -1,0 +1,40 @@
+version: '3'
+volumes:
+  qlikdb:
+services:
+  qlikdb:
+    build:
+      context: ../db/mysql
+    volumes:
+      - "qlikdb:/var/lib/mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: messageDB
+      MYSQL_USER: docker
+      MYSQL_PASSWORD: docker
+    container_name: qlikdb
+    ports:
+      - "3306:3306"
+    tty: true
+  qlikapp:
+    build:
+      context: ../../
+    environment:
+      SVC_HOST: 0.0.0.0
+      SVC_PORT: 8080
+      SVC_VERSION: /v1
+      SVC_PATH_PREFIX: messages
+      METRICS_PORT: 6060
+      DB_DRIVER: mysql
+      DB_HOST: qlikdb
+      DB_PORT: 3306
+      DB_USER: docker
+      DB_PASSWD: docker
+      DB_NAME: messageDB
+    container_name: qlikapp
+    ports:
+      - "8080:8080"
+      - "6060:6060"
+    tty: true
+    depends_on:
+      - qlikdb
