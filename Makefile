@@ -40,7 +40,7 @@ docker-deploy-up:
 	docker-compose -f ./build/docker-deploy/docker-deploy.yaml up --build -d
 	echo "Server started at url: http://localhost:8080"
 	echo "The API documentation is available at url: http://localhost:8080/swagger/"
-	echo "Server runtime profiling data available at url: http://localhost:6060/debug/pprof"
+	echo "Server runtime profiling data available at url: http://localhost:8080/debug/pprof"
 
 docker-deploy-down:
 	docker-compose -f ./build/docker-deploy/docker-deploy.yaml down

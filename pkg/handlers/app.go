@@ -1,4 +1,4 @@
-package controller
+package handlers
 
 import (
 	"database/sql"
@@ -8,7 +8,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"strconv"
-	"sync"
+	"time"
 
 	"github.com/rahulsidpatil/qlikapp/pkg/dal"
 	"github.com/rahulsidpatil/qlikapp/pkg/util"
@@ -19,15 +19,15 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-var swaggerAddr, svcHost, svcAddr, svcPort, metricsAddr, metricsPort, svcPathPrefix, svcVersion string
+var swaggerAddr, svcAddr, svcPort, svcPathPrefix, svcVersion string
 
 func init() {
 	svcVersion = os.Getenv("SVC_VERSION")
-	svcHost = os.Getenv("SVC_HOST")
 	svcPort = os.Getenv("SVC_PORT")
-	metricsPort = os.Getenv("METRICS_PORT")
-	svcAddr = svcHost + ":" + svcPort
-	metricsAddr = svcHost + ":" + metricsPort
+	if svcPort == "" {
+		svcPort = "8080"
+	}
+	svcAddr = ":" + svcPort
 	svcPathPrefix = svcVersion + "/" + os.Getenv("SVC_PATH_PREFIX")
 	swaggerAddr = "http://localhost:" + svcPort + "/swagger/doc.json"
 }
@@ -45,41 +45,25 @@ func (a *App) Initialize() {
 }
 
 func (a *App) Run() {
-	wg := sync.WaitGroup{}
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		if i == 0 {
-			log.Println("Message Service is being started at:", svcAddr)
-			go func() {
-				defer wg.Done()
-				log.Println(http.ListenAndServe(svcAddr, a.Router))
-			}()
-		} else {
-			log.Println("Metrics Service is being started at:", metricsAddr)
-			go func() {
-				defer wg.Done()
-				log.Println(http.ListenAndServe(metricsAddr, nil))
-			}()
-		}
-	}
-	wg.Wait()
+	log.Println(http.ListenAndServe(":8080", a.Router))
 }
 
 func (a *App) initializeRoutes() {
 
-	a.Router.HandleFunc(os.Getenv("SVC_VERSION")+"/hello", a.hello).Methods("GET")
+	a.Router.HandleFunc(os.Getenv("SVC_VERSION")+"/hello", WithStats(a.hello)).Methods("GET")
+	a.Router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 	a.Router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
 		httpSwagger.URL(swaggerAddr), //The url pointing to API definition
 		httpSwagger.DeepLinking(true),
 		httpSwagger.DocExpansion("none"),
 		httpSwagger.DomID("#swagger-ui"),
 	))
-	a.Router.HandleFunc(svcPathPrefix, a.getAll).Methods("GET")
-	a.Router.HandleFunc(svcPathPrefix, a.addMessage).Methods("POST")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", a.getMessage).Methods("GET")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", a.updateMessage).Methods("PUT")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", a.deleteMessage).Methods("DELETE")
-	a.Router.HandleFunc(svcPathPrefix+"/palindromeChk/{id:[0-9]+}", a.palindromeChk).Methods("GET")
+	a.Router.HandleFunc(svcPathPrefix, WithStats(a.getAll)).Methods("GET")
+	a.Router.HandleFunc(svcPathPrefix, WithStats(a.addMessage)).Methods("POST")
+	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.getMessage)).Methods("GET")
+	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.updateMessage)).Methods("PUT")
+	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.deleteMessage)).Methods("DELETE")
+	a.Router.HandleFunc(svcPathPrefix+"/palindromeChk/{id:[0-9]+}", WithStats(a.palindromeChk)).Methods("GET")
 }
 
 func (a *App) setSwaggerInfo() {
@@ -91,6 +75,21 @@ func (a *App) setSwaggerInfo() {
 	docs.SwaggerInfo.Host = "localhost:" + svcPort
 	docs.SwaggerInfo.BasePath = svcVersion
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
+}
+
+// WithStats wraps handlers with stats reporting. It tracks metrics such
+// as the number of requests per endpoint, the latency, etc.
+func WithStats(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		tags := util.GetStatsTags(r)
+		util.RequestFrom(tags, start)
+
+		h(w, r)
+
+		duration := time.Since(start)
+		util.RecordLatency(tags, duration)
+	}
 }
 
 // @Summary Say hello to user

@@ -9,4 +9,5 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/swaggo/http-swagger v0.0.0-20200308142732-58ac5e232fba
 	github.com/swaggo/swag v1.6.7
+	github.com/varstr/uaparser v0.0.0-20170929040706-6aabb7c4e98c
 )
