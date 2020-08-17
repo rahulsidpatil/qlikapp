@@ -7,7 +7,6 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/rahulsidpatil/qlikapp/pkg/util"
 )
 
 var (
@@ -25,9 +24,6 @@ var db MySQLDriver
 // TODO: Do away with mysql raw queries
 
 func init() {
-	if len(os.Args) >= 2 && os.Args[1] == "dev" {
-		util.SetDevEnv()
-	}
 	if os.Getenv("DB_DRIVER") != "" {
 		dbdriver = os.Getenv("DB_DRIVER")
 	}
