@@ -20,11 +20,10 @@ services:
     build:
       context: ../../
     environment:
-      SVC_HOST: 0.0.0.0
       SVC_PORT: 8080
       SVC_VERSION: /v1
       SVC_PATH_PREFIX: messages
-      METRICS_PORT: 6060
+      STATS: 'on'
       DB_DRIVER: mysql
       DB_HOST: qlikdb
       DB_PORT: 3306

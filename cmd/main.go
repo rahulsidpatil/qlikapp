@@ -24,11 +24,11 @@ SOFTWARE.
 package main
 
 import (
-	"github.com/rahulsidpatil/qlikapp/pkg/controller"
+	"github.com/rahulsidpatil/qlikapp/pkg/handlers"
 )
 
 func main() {
-	a := controller.App{}
+	a := handlers.App{}
 	a.Initialize()
 	a.Run()
 }
