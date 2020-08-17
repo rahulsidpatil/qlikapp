@@ -77,8 +77,10 @@ func (a *App) setSwaggerInfo() {
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 }
 
-// WithStats wraps handlers with stats reporting. It tracks metrics such
-// as the number of requests per endpoint, the latency, etc.
+/*
+WithStats ... wraps handlers with stats reporting.
+It tracks metrics such as the request recieve time and latency
+*/
 func WithStats(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
