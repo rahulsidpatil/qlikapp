@@ -19,11 +19,10 @@ type MySQLDriver struct {
 	driver *sql.DB
 }
 
-var db MySQLDriver
-
 // TODO: Do away with mysql raw queries
 
-func init() {
+//GetMySQLDriver ... get a mysql DB driver
+func GetMySQLDriver() *MySQLDriver {
 	if os.Getenv("DB_DRIVER") != "" {
 		dbdriver = os.Getenv("DB_DRIVER")
 	}
@@ -35,15 +34,13 @@ func init() {
 		dbname = os.Getenv("DB_NAME")
 	}
 	dbaccessurl := dbuser + ":" + dbpasswd + "@" + "tcp(" + dbhost + ":" + dbport + ")" + "/" + dbname
+
+	var db MySQLDriver
 	var err error
 	db.driver, err = sql.Open(dbdriver, dbaccessurl)
 	if err != nil {
 		log.Println("Error connecting to database: ", err)
 	}
-}
-
-//GetMySQLDriver ... get a mysql DB driver
-func GetMySQLDriver() *MySQLDriver {
 	return &db
 }
 

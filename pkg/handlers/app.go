@@ -19,61 +19,59 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-var swaggerAddr, svcAddr, svcPort, svcPathPrefix, svcVersion string
+var svcPort string
 
-func init() {
-	svcVersion = os.Getenv("SVC_VERSION")
+type App struct {
+	router *mux.Router
+	db     dal.Interface
+}
+
+func (a *App) Initialize() {
+	svcVersion := os.Getenv("SVC_VERSION")
 	svcPort = os.Getenv("SVC_PORT")
 	if svcPort == "" {
 		svcPort = "8080"
 	}
-	svcAddr = ":" + svcPort
-	svcPathPrefix = svcVersion + "/" + os.Getenv("SVC_PATH_PREFIX")
-	swaggerAddr = "http://localhost:" + svcPort + "/swagger/doc.json"
-}
+	svcPathPrefix := svcVersion + "/" + os.Getenv("SVC_PATH_PREFIX")
+	swaggerAddr := "http://localhost:" + svcPort + "/swagger/doc.json"
 
-type App struct {
-	Router *mux.Router
-	DB     dal.Interface
-}
-
-func (a *App) Initialize() {
-	a.Router = mux.NewRouter()
-	a.DB = dal.GetMySQLDriver()
-	a.setSwaggerInfo()
-	a.initializeRoutes()
+	a.router = mux.NewRouter()
+	a.db = dal.GetMySQLDriver()
+	a.setSwaggerInfo(swaggerAddr, svcPort, svcVersion)
+	a.initializeRoutes(swaggerAddr, svcPathPrefix)
 }
 
 func (a *App) Run() {
-	log.Println(http.ListenAndServe(":8080", a.Router))
+	svcAddr := ":" + svcPort
+	log.Printf("starting message server at:%s", svcAddr)
+	log.Println(http.ListenAndServe(svcAddr, a.router))
 }
 
-func (a *App) initializeRoutes() {
-
-	a.Router.HandleFunc(os.Getenv("SVC_VERSION")+"/hello", WithStats(a.hello)).Methods("GET")
-	a.Router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
-	a.Router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+func (a *App) initializeRoutes(swaggerAddr, svcPathPrefix string) {
+	a.router.HandleFunc(os.Getenv("SVC_VERSION")+"/hello", WithStats(a.hello)).Methods("GET")
+	a.router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	a.router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
 		httpSwagger.URL(swaggerAddr), //The url pointing to API definition
 		httpSwagger.DeepLinking(true),
 		httpSwagger.DocExpansion("none"),
 		httpSwagger.DomID("#swagger-ui"),
 	))
-	a.Router.HandleFunc(svcPathPrefix, WithStats(a.getAll)).Methods("GET")
-	a.Router.HandleFunc(svcPathPrefix, WithStats(a.addMessage)).Methods("POST")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.getMessage)).Methods("GET")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.updateMessage)).Methods("PUT")
-	a.Router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.deleteMessage)).Methods("DELETE")
-	a.Router.HandleFunc(svcPathPrefix+"/palindromeChk/{id:[0-9]+}", WithStats(a.palindromeChk)).Methods("GET")
+	a.router.HandleFunc(svcPathPrefix, WithStats(a.getAll)).Methods("GET")
+	a.router.HandleFunc(svcPathPrefix, WithStats(a.addMessage)).Methods("POST")
+	a.router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.getMessage)).Methods("GET")
+	a.router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.updateMessage)).Methods("PUT")
+	a.router.HandleFunc(svcPathPrefix+"/{id:[0-9]+}", WithStats(a.deleteMessage)).Methods("DELETE")
+	a.router.HandleFunc(svcPathPrefix+"/palindromeChk/{id:[0-9]+}", WithStats(a.palindromeChk)).Methods("GET")
 }
 
-func (a *App) setSwaggerInfo() {
+func (a *App) setSwaggerInfo(swaggerAddr, port, version string) {
 	// programatically set swagger info
 	docs.SwaggerInfo.Title = "Swagger Example API"
 	docs.SwaggerInfo.Description = "This is a sample qlikapp server."
 	docs.SwaggerInfo.Version = "1.0"
 	//TODO: remove hard-coding of Host address
-	docs.SwaggerInfo.Host = "localhost:" + svcPort
-	docs.SwaggerInfo.BasePath = svcVersion
+	docs.SwaggerInfo.Host = "localhost:" + port
+	docs.SwaggerInfo.BasePath = version
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 }
 
@@ -110,7 +108,7 @@ func (a *App) hello(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} util.HTTPError
 // @Router /messages [get]
 func (a *App) getAll(w http.ResponseWriter, r *http.Request) {
-	messages, err := a.DB.GetAll()
+	messages, err := a.db.GetAll()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -136,7 +134,7 @@ func (a *App) addMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	if err := a.DB.AddMessage(&msg); err != nil {
+	if err := a.db.AddMessage(&msg); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -162,7 +160,7 @@ func (a *App) getMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	msg := dal.Message{ID: id}
-	if err := a.DB.GetMessage(&msg); err != nil {
+	if err := a.db.GetMessage(&msg); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			respondWithError(w, http.StatusNotFound, "Message not found")
@@ -192,7 +190,7 @@ func (a *App) palindromeChk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	msg := dal.Message{ID: id}
-	if err := a.DB.GetMessage(&msg); err != nil {
+	if err := a.db.GetMessage(&msg); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			respondWithError(w, http.StatusNotFound, "Message not found")
@@ -236,7 +234,7 @@ func (a *App) updateMessage(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	msg.ID = id
 
-	if err := a.DB.UpdateMessage(&msg); err != nil {
+	if err := a.db.UpdateMessage(&msg); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -262,7 +260,7 @@ func (a *App) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	msg := dal.Message{ID: id}
-	if err := a.DB.DeleteMessage(&msg); err != nil {
+	if err := a.db.DeleteMessage(&msg); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
