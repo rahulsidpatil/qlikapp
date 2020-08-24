@@ -35,8 +35,8 @@ type Message struct {
 ```
 package dal
 
-// Interface ... is an interface to data access layer methods
-type Interface interface {
+// DalInterface ... is an interface to data access layer methods
+type DalInterface interface {
 	AddMessage(msg *Message) error
 	GetMessage(msg *Message) error
 	UpdateMessage(msg *Message) error
