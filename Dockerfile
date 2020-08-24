@@ -29,8 +29,8 @@ WORKDIR /root/
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/qlikapp .
 
-# Expose port 8080 and 6060 to the outside world
-EXPOSE 8080 6060
+# Expose port 8080 to the outside world
+EXPOSE 8080
 
 # Command to run the executable
 CMD ["./qlikapp"]
